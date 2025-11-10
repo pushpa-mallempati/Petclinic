@@ -19,7 +19,6 @@ jobs:
           java-version: '17'
           
       - name: 🔨 Build with Maven (clean and verify)
-        # Note: If your project still uses Java 8, change '17' back to '11' or '8' in setup-java
         run: mvn -B clean verify
         
       - name: 🔍 SonarQube Scan
@@ -29,17 +28,25 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-war
-          path: target/petclinic.war # Explicitly upload the correct file name
+          path: target/petclinic.war
           
   publish-to-nexus:
     needs: build-and-scan 
     runs-on: ubuntu-latest
     steps:
+      
+      - name: 🔑 Configure Maven Settings for Nexus Auth
+        # This step creates a temporary settings.xml file with your Nexus credentials.
+        # It links the repositoryId 'nexus' (used in mvn deploy) to the secrets.
+        run: |
+          mkdir -p ~/.m2
+          echo "<settings><servers><server><id>nexus</id><username>${{ secrets.NEXUS_USER }}</username><password>${{ secrets.NEXUS_PASSWORD }}</password></server></servers></settings>" > ~/.m2/settings.xml
+          
       - name: 📥 Download WAR artifact
         uses: actions/download-artifact@v4
         with:
           name: app-war
-          path: target # Downloads 'petclinic.war' into the 'target' directory
+          path: target
           
       - name: ⏫ Publish to Nexus Repository
         run: |
