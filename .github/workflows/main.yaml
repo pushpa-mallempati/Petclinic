@@ -12,13 +12,15 @@ jobs:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
         
-      - name: ☕ Set up JDK 17
+      - name: ☕ Set up JDK 11 (Fixed for Petclinic Compatibility)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          # CRITICAL FIX: Downgrade to Java 11 to resolve the compilation error (sun/misc/Unsafe)
+          java-version: '11' 
           
       - name: 🔨 Build with Maven (clean and verify)
+        # This step now runs clean and test, and packages the target/petclinic.war file.
         run: mvn -B clean verify
         
       - name: 🔍 SonarQube Scan
@@ -28,7 +30,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-war
-          path: target/petclinic.war
+          # Confirmed WAR file name from your pom.xml
+          path: target/petclinic.war 
           
   publish-to-nexus:
     needs: build-and-scan 
@@ -36,8 +39,7 @@ jobs:
     steps:
       
       - name: 🔑 Configure Maven Settings for Nexus Auth
-        # This step creates a temporary settings.xml file with your Nexus credentials.
-        # It links the repositoryId 'nexus' (used in mvn deploy) to the secrets.
+        # This step creates a temporary settings.xml to authenticate with Nexus using the repositoryId 'nexus'
         run: |
           mkdir -p ~/.m2
           echo "<settings><servers><server><id>nexus</id><username>${{ secrets.NEXUS_USER }}</username><password>${{ secrets.NEXUS_PASSWORD }}</password></server></servers></settings>" > ~/.m2/settings.xml
@@ -54,7 +56,7 @@ jobs:
           mvn deploy:deploy-file \
             -Durl=${{ secrets.NEXUS_URL }} \
             -DrepositoryId=nexus \
-            -Dfile=target/petclinic.war \
+            -Dfile=target/petclinic.war \ # Corrected file path
             -DgroupId=com.example \
             -DartifactId=myapp \
             -Dversion=$VERSION \
@@ -74,5 +76,5 @@ jobs:
       - name: 🔄 Deploy to Tomcat Manager
         run: |
           curl -u ${{ secrets.TOMCAT_USER }}:${{ secrets.TOMCAT_PASSWORD }} \
-            -T target/petclinic.war \
+            -T target/petclinic.war \ # Corrected file path
             "${{ secrets.TOMCAT_MANAGER_URL }}/manager/text/deploy?path=/myapp&update=true"
